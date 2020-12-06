@@ -15,8 +15,11 @@ cd Maple-glTF
 ```
 
 Open the solution file(testMapleGLTF.sln)
+
 Select the executable file format from Debug to Release and from x64 to x86.
+
 *The old Siv3D (August2016v2) is configured for x86, so it will not work on x64.
+
 *Also, open the project properties page and select Visual Studio 2015 (V140) in the Platform Toolset item in the General menu.
 If the installation is not complete, you need to install the toolset in advance.
 
