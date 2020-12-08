@@ -13,11 +13,18 @@
 
 using namespace s3d::Input;
 
+enum ID_ANIME { DIG = 0, JUMP = 1, RUN = 2 ,IDLE = 3 };
 Quaternion Q0001 = Quaternion(0, 0, 0, 1);      // よくある定数の略称
 Float3 sca111 = Float3(1, 1, 1);
 int32 WW, HH;
 
-void MorphSetFace(int32 ch, Entity* ent, int32 mtstate, float speed, Array<float> weight)
+String GetMap(Float3 flt3,ChunkMap &chunkmap)
+{
+    auto idx = MaplePos2Idx(flt3, chunkmap);
+    return (idx >= 0) ? chunkmap.Text.substr(idx, 1) : L"　";
+}
+
+void SetMorph(int32 ch, Entity* ent, int32 mtstate, float speed, Array<float> weight)
 {
     if (ent == nullptr) return;
 
@@ -39,11 +46,12 @@ void MorphSetFace(int32 ch, Entity* ent, int32 mtstate, float speed, Array<float
         wt.insert(wt.begin(), 0);
     }
 }
+
 void CtrlMorph(Entity* ent)
 {
     if (ent == nullptr) return;
 
-    for (auto ii = 0; ii < NUMM; ii++)
+    for (auto ii = 0; ii < NUMMORPH; ii++)
     {
         auto& spd = ent->Morph[ii].Speed;
         auto& cnt = ent->Morph[ii].CntSpeed;
@@ -70,22 +78,22 @@ void CtrlMorph(Entity* ent)
         }
     }
 }
-void CtrlKeyboard(Entity* ent, ChunkMap& map, const Font& fontL)
+
+void CtrlKeyboard(Entity* ent, ChunkMap& map)
 {
     if (ent == nullptr) return;
 
-    // 上下左右キーで円周移動
     const int16  DST[] = { -1, 0, 180, -1,270, 315, 225, -1,  90,  45, 135,  -1,-1,-1,-1,-1 };//押下キーに対応する方向テーブル
-    uint32 key_m = 8 * KeyNum1.pressed | 4 * KeyNum3.pressed | 2 * KeyNum5.pressed | KeyNum2.pressed;
-    uint32 key_a = 2 * KeyN.clicked | KeyM.clicked;
-    auto& dir = ent->Rotate[0].y;       //現在の方向
     static float rad = 0;
+    auto& dir = ent->Rotate[0].y;       //現在の方向
 
-    enum ID_ANIME { DIG = 0, JUMP = 1, RUN = 2 ,IDLE = 3 };
+    // キー入力
+    uint32 key_m = 8 * KeyNum1.pressed + 4 * KeyNum3.pressed + 2 * KeyNum5.pressed + KeyNum2.pressed;
+    uint32 key_a = 2 * KeyN.clicked + KeyM.clicked;
 
-    // ArgI(アニメ選択)が掘るでも跳ぶでもない
     auto& anime_s = ent->Maple->ArgI;
-    if (anime_s != ID_ANIME::DIG && anime_s != ID_ANIME::JUMP)
+    // ArgI(アニメ選択)が掘るでも跳ぶでもない
+    if (anime_s == ID_ANIME::IDLE || anime_s == ID_ANIME::RUN)
     {
         if (key_m && DST[key_m] != -1)  //走る
         {
@@ -108,21 +116,30 @@ void CtrlKeyboard(Entity* ent, ChunkMap& map, const Font& fontL)
             Float3 tra = Q0001.Yaw(Radians(DST[key_m])) * Vec3::Backward * 0.1; //でも、直接ターンにしないと操作性悪すぎ
 
             //当たり判定
-            auto idxu = MaplePos2Idx(ent->Trans + Float3(0, 1, 0) + tra * 10, map);
-            auto idxl = MaplePos2Idx(ent->Trans + Float3(0, 0, 0) + tra * 10, map);
-            auto wall_u = map.Text.substr(idxu, 1);                             // 上半身
-            auto wall_l = map.Text.substr(idxl, 1);                             // 下半身 移動成分ｘ10でちょい先読み
+            auto wall_u = GetMap(ent->Trans + Float3(0, 1, 0) + tra * 10, map);// 上半身
+            auto wall_l = GetMap(ent->Trans + Float3(0, 0, 0) + tra * 10, map);// 下半身 移動成分ｘ10でちょい先読み
 
             if (wall_u == L"　" && wall_l == L"　") ent->Trans = ent->Trans + tra;
 
             anime_s = ID_ANIME::RUN;
         }
 
+        if (DST[key_m] == -1 && key_a == 0) anime_s = ID_ANIME::IDLE;   //立ち
         if (KeyB.clicked) anime_s = ID_ANIME::DIG;                      //掘る
         if (KeyM.clicked) anime_s = ID_ANIME::JUMP;                     //ジャンプ
+        
+        if      (Key0.clicked) SetMorph(0, ent,  0, 1.0, WEIGHTTRANS);  //瞬き
+        else if (Key1.clicked) SetMorph(1, ent,  1, 1.0, WEIGHTBLINK);
+        else if (Key2.clicked) SetMorph(1, ent,  2, 1.0, WEIGHTBLINK);
+        else if (Key3.clicked) SetMorph(2, ent,  3, 1.0, WEIGHTBLINK);
+        else if (Key4.clicked) SetMorph(2, ent, 14, 1.0, WEIGHTBLINK);
 
+        else if (Key5.clicked) SetMorph(0, ent, 10, 1.0, WEIGHTTRANS);  //表情
+        else if (Key6.clicked) SetMorph(0, ent, 11, 1.0, WEIGHTTRANS);
+        else if (Key7.clicked) SetMorph(0, ent, 12, 1.0, WEIGHTTRANS);
+        else if (Key8.clicked) SetMorph(0, ent,  8, 1.0, WEIGHTTRANS);
+        else if (Key9.clicked) SetMorph(0, ent, 14, 1.0, WEIGHTTRANS);
 
-        if (DST[key_m] == -1 && key_a == 0) anime_s = ID_ANIME::IDLE;   //立ち
     }
 
     if (anime_s == ID_ANIME::JUMP)   //跳んでからも制御可能(マリオジャンプ)
@@ -144,27 +161,21 @@ void CtrlKeyboard(Entity* ent, ChunkMap& map, const Font& fontL)
 
             ent->qRotate[0] *= Q0001.Yaw(Radians(vel));
 
-            Float3 tra = Q0001.Yaw(Radians(DST[key_m])) * Vec3::Backward * 0.1;         // 直接
-            auto wall = map.Text.substr(MaplePos2Idx(ent->Trans + tra * 10, map), 1);   // 移動成分ｘ10でちょい先読み
+            Float3 tra = Q0001.Yaw(Radians(DST[key_m])) * Vec3::Backward * 0.1; // 直接
+            auto wall = GetMap(ent->Trans + tra * 10, map);                     // 移動成分ｘ10でちょい先読み
+
             if (wall == L"　") ent->Trans = ent->Trans + tra;
         }
     }
-
-    auto& st = ent->Trans;                  //デバッグ情報
-    fontL(String(L"Key:(K) Dir:(D) Rad:(R)")
-        .replace(L"(K)", Format(DST[key_m]))
-        .replace(L"(R)", Format(rad))
-        .replace(L"(D)", Format(dir))
-    ).draw(10, HH - 45);
-
 }
+
+
 void CtrlAction(MapleMap& maple, Entity* ent, ChunkMap& chunkmap, ChunkMap& chunkatr)
 {
     if (ent == nullptr) return;
 
-    enum ID_ANIME { DIG = 0, JUMP = 1, RUN = 2 ,IDLE = 3 };
-    auto& anime = ent->Maple->ArgI;
-    auto& currentframe = ent->Maple->AniModel.precAnimes[anime].currentframe;
+    auto& anime_s = ent->Maple->ArgI;
+    auto& currentframe = ent->Maple->AniModel.precAnimes[anime_s].currentframe;
     auto& animespeed = ent->Maple->ArgF;
     auto& jump = ent->CtrlF;
     auto& starty = ent->CtrlF[0];
@@ -177,26 +188,26 @@ void CtrlAction(MapleMap& maple, Entity* ent, ChunkMap& chunkmap, ChunkMap& chun
     };
 
 //初期化
-    if (ent->CtrlI[0] != anime)     // [0]:アニメステート履歴で切り替わった時
+    if (ent->CtrlI[0] != anime_s)     // [0]:アニメステート履歴で切り替わった時
     {
-        if (anime == ID_ANIME::DIG) animespeed = ID_ANIME::RUN; // 掘る 倍速設定
-        else if (anime == ID_ANIME::JUMP)            // 跳ぶ
+        if      (anime_s == ID_ANIME::DIG) animespeed = 4; // 掘る 倍速設定
+        else if (anime_s == ID_ANIME::RUN)  animespeed = 4;// 走る 倍速設定
+        else if (anime_s == ID_ANIME::IDLE) animespeed = 2;// 立つ
+        else if (anime_s == ID_ANIME::JUMP)                // 跳ぶ
         {
             starty = ent->Trans.y;
             jump.insert(jump.end(), G.begin(), G.end());
             ent->CtrlI.emplace_back(1);
-            animespeed = 1;         // 等速設定
+            animespeed = 1;                             // 等速設定
         }
-        else if (anime == ID_ANIME::RUN) animespeed = 4;// 走る 倍速設定
-        else if (anime == ID_ANIME::IDLE) animespeed = 1;// 立つ
 
-        currentframe = 1;           // フレームカウンタを1に設定(ループして0で終了)
-        ent->CtrlI[0] = anime;
+        currentframe = 1;           // フレームカウンタを1に設定してアニメスタート(ループして0で終了)
+        ent->CtrlI[0] = anime_s;
     }
     else
     {
 //各アニメ制御
-        if (anime == ID_ANIME::IDLE)                 // 立ち行動の表現
+        if (anime_s == ID_ANIME::IDLE)                 // 立ち行動の表現
         {
             static int32 cnt = 0;
             static float sign = +1;
@@ -215,17 +226,17 @@ void CtrlAction(MapleMap& maple, Entity* ent, ChunkMap& chunkmap, ChunkMap& chun
             animespeed = VEL[cnt] * sign;
             if (cnt) cnt++;
 
-            auto idx = MaplePos2Idx(ent->Trans + Float3(0, -1, 0), chunkmap);
-            auto under = chunkmap.Text.substr( idx, 1);
+            auto under = GetMap(ent->Trans + Float3(0, -1, 0), chunkmap);
+
             if (under == L"　") ent->Trans += Float3(0, -0.5, 0);   //落下
             else                ent->Trans.y = Floor(ent->Trans.y); //着地時の高さを再計算
         }
 
-        if (anime == ID_ANIME::JUMP)         // 跳び行動の表現
+        if (anime_s == ID_ANIME::JUMP)         // 跳び行動の表現
         {
             if (currentframe == 0 || ent->CtrlI[1] >= G.size())
             {
-                anime = ID_ANIME::RUN;      // 終わったら2:走るに変更
+                anime_s = ID_ANIME::RUN;      // 終わったら2:走るに変更
                 animespeed = 4; // 走る 倍速設定
                 ent->Trans.y = starty;
                 ent->CtrlF.resize(1);
@@ -234,27 +245,25 @@ void CtrlAction(MapleMap& maple, Entity* ent, ChunkMap& chunkmap, ChunkMap& chun
             }
 
             auto tra = // ent->qRotate[0] * Vec3::Backward * 0.08 +  // xz平面の移動成分
-                       Float3(0, jump[ent->CtrlI[1]++] / 190, 0);        // y軸の移動成分
+                       Float3(0, jump[ent->CtrlI[1]++] / 190, 0);    // y軸の移動成分
 
-            auto under = chunkmap.Text.substr(MaplePos2Idx(ent->Trans + Float3(0, -1, 0) + tra, chunkmap), 1);
-
-//        LOG(String(L"TRA_Y:(Y) Under:(U)").replace(L"(Y)", Format(tra.y)).replace(L"(U)", under));
+            auto under = GetMap(ent->Trans + Float3(0, -1, 0) + tra, chunkmap);
 
             if (tra.y < 0 && under != L"　")
             {
-                anime = ID_ANIME::RUN;  // 終わったら2:走るに変更
-                animespeed = 4;         // 走る 倍速設定
+                anime_s = ID_ANIME::RUN;  // 終わったら2:走るに変更
+                animespeed = 4;           // 走る 倍速設定
                 ent->CtrlF.resize(1);
                 ent->CtrlI.resize(1);
                 return;
             }
             else
             {
-                auto wall = chunkmap.Text.substr(MaplePos2Idx(ent->Trans + tra, chunkmap), 1);
+                auto wall = GetMap(ent->Trans + tra, chunkmap);
                 if (wall == L"　") ent->Trans += tra;
                 else
                 {
-                    anime = ID_ANIME::RUN;  // 終わったら2:走るに変更
+                    anime_s = ID_ANIME::RUN;  // 終わったら2:走るに変更
                     animespeed = 4;         // 走る 倍速設定
                     ent->CtrlF.resize(1);
                     ent->CtrlI.resize(1);
@@ -263,15 +272,17 @@ void CtrlAction(MapleMap& maple, Entity* ent, ChunkMap& chunkmap, ChunkMap& chun
             }
         }
 
-        if (anime == ID_ANIME::DIG)         // 掘り行動の表現
+        if (anime_s == ID_ANIME::DIG)         // 掘り行動の表現
         {
-            if (currentframe == 0) anime = ID_ANIME::IDLE; // 終わったら3:立つに変更
+            if (currentframe == 0) anime_s = ID_ANIME::IDLE; // 終わったら3:立つに変更
         }
 
         //床の重力ベクトル対応(床が動いていたら一緒に動かす)
-        auto atr_under = chunkmap.Text[MaplePos2Idx(ent->Trans + Float3(0, -1, 0), chunkmap)];
+        auto atr_under = GetMap(ent->Trans + Float3(0, -1, 0), chunkmap);
+
         auto nowidx = MaplePos2Idx(ent->Trans, chunkmap);         //現在位置の属性を取ってくる
-        auto name = chunkatr.Text.substr(nowidx, 1);
+        auto name = (nowidx != -1) ? chunkatr.Text.substr(nowidx, 1): L"　";
+
         for (auto& atr : maple.Attribs)
         {
             if (atr.Name == name)                                   //取ってきた属性を選択
@@ -315,7 +326,7 @@ void Main()
         if (ent.Name == L"Ｓ")
         {
             ent_s = &ent;
-            ent_s->Maple->ArgI = 3; //アニメ種類3：待ち
+            ent_s->Maple->ArgI = ID_ANIME::IDLE; //アニメ種類3：待ち
         }
     }
 
@@ -330,7 +341,7 @@ void Main()
 
         auto ms1 = stopwatch.ms();
 
-        CtrlKeyboard(ent_s, map1, FontT);           // キー入力制御 [1]：←[2]：↓[3]：→[5]：↑[M]：ジャンプ
+        CtrlKeyboard(ent_s, map1);                  // キー入力制御 [1]：←[2]：↓[3]：→[5]：↑[M]：ジャンプ[B]:掘る
         CtrlMorph(ent_s);                           // モーフィング制御
         CtrlAction(maple1, ent_s, map1, atr1);      // 行動制御
         RenderMaple(maple1, map1, atr1);            // 描画
