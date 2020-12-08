@@ -4,7 +4,7 @@
 #include "tiny_gltf.h"
 
 #define CPUSKINNING
-#define NUMM 3    //モーフ合成CH数
+#define NUMMORPH 3    //モーフ合成CH数
 
 using Word4 = Vector4D<uint16_t>;
 
@@ -168,7 +168,7 @@ struct Entity
     float  Start;               // 表示開始位置
     float  Count;               // 表示量
 
-    MorphInfo Morph[NUMM];      // モーフィング制御 ※3ch合成
+    MorphInfo Morph[NUMMORPH];      // モーフィング制御 ※3ch合成
 
     Array<int32> CtrlI;
     Array<float> CtrlF;
@@ -577,7 +577,7 @@ void gltfDrawMesh(NoAModel* noamodel, Entity& entity, Quaternion& rot, Float3& t
 
             for (auto vv = 0; vv < morphmv.size(); vv++)
             {
-                for (auto ii = 0; ii < NUMM; ii++)   //3chモーフ合成(目、口、表情を非同期で動かす)
+                for (auto ii = 0; ii < NUMMORPH; ii++)   //3chモーフ合成(目、口、表情を非同期で動かす)
                 {
                     auto& now = entity.Morph[ii].NowTarget;
                     auto& dst = entity.Morph[ii].DstTarget;
@@ -588,14 +588,14 @@ void gltfDrawMesh(NoAModel* noamodel, Entity& entity, Quaternion& rot, Float3& t
                     if (idx == -1)             //IndexTransが-1の場合はWeightTrans[0]でマニュアルウェイト
                     {
                         auto weight = entity.Morph[0].WeightTrans;
-                        morphmv[vv].position += buf[cntm * NUMM + ii][vv].position * (1 - wt[0]) + buf[cntm * NUMM + ii][vv].position * wt[0];
-                        morphmv[vv].normal += buf[cntm * NUMM + ii][vv].normal * (1 - wt[0]) + buf[cntm * NUMM + ii][vv].normal * wt[0];
+                        morphmv[vv].position += buf[cntm * NUMMORPH + ii][vv].position * (1 - wt[0]) + buf[cntm * NUMMORPH + ii][vv].position * wt[0];
+                        morphmv[vv].normal += buf[cntm * NUMMORPH + ii][vv].normal * (1 - wt[0]) + buf[cntm * NUMMORPH + ii][vv].normal * wt[0];
                     }
                     else
                     {
                         auto weight = (wt[idx] < 0) ? 0 : wt[idx];
-                        morphmv[vv].position += buf[cntm * NUMM + now][vv].position * (1 - weight) + buf[cntm * NUMM + dst][vv].position * weight;
-                        morphmv[vv].normal += buf[cntm * NUMM + now][vv].normal * (1 - weight) + buf[cntm * NUMM + dst][vv].normal * weight;
+                        morphmv[vv].position += buf[cntm * NUMMORPH + now][vv].position * (1 - weight) + buf[cntm * NUMMORPH + dst][vv].position * weight;
+                        morphmv[vv].normal += buf[cntm * NUMMORPH + now][vv].normal * (1 - weight) + buf[cntm * NUMMORPH + dst][vv].normal * weight;
                     }
                 }
                 Mat4x4& matskin = noamodel->morphMatBuffer[vv];
@@ -1289,7 +1289,7 @@ void gltfDrawSkinMesh(AnimeModel& animodel, Entity& ent,
             for (auto vv = 0; vv < morphmv.size(); vv++)
             {
                 Mat4x4& matskin = frame.morphMatBuffer[vv];
-                for (auto ii = 0; ii < NUMM; ii++)   //3chモーフ合成(目、口、表情を非同期で動かす)
+                for (auto ii = 0; ii < NUMMORPH; ii++)   //3chモーフ合成(目、口、表情を非同期で動かす)
                 {
                     auto& now = ent.Morph[ii].NowTarget;
                     auto& dst = ent.Morph[ii].DstTarget;
@@ -1299,14 +1299,14 @@ void gltfDrawSkinMesh(AnimeModel& animodel, Entity& ent,
                     if (now == -1) continue;    //NowTargetが-1の場合はモーフ無効
                     if (idx == -1)             //IndexTransが-1の場合はWeightTrans[0]でマニュアルウェイト
                     {
-                        morphmv[vv].position += buf[cntm * NUMM + ii][vv].position * (1 - wt[0]) + buf[cntm * NUMM + ii][vv].position * wt[0];
-                        morphmv[vv].normal += buf[cntm * NUMM + ii][vv].normal * (1 - wt[0]) + buf[cntm * NUMM + ii][vv].normal * wt[0];
+                        morphmv[vv].position += buf[cntm * NUMMORPH + ii][vv].position * (1 - wt[0]) + buf[cntm * NUMMORPH + ii][vv].position * wt[0];
+                        morphmv[vv].normal += buf[cntm * NUMMORPH + ii][vv].normal * (1 - wt[0]) + buf[cntm * NUMMORPH + ii][vv].normal * wt[0];
                     }
                     else
                     {
                         auto weight = (wt[idx] < 0) ? 0 : wt[idx];
-                        morphmv[vv].position += buf[cntm * NUMM + now][vv].position * (1 - weight) + buf[cntm * NUMM + dst][vv].position * weight;
-                        morphmv[vv].normal += buf[cntm * NUMM + now][vv].normal * (1 - weight) + buf[cntm * NUMM + dst][vv].normal * weight;
+                        morphmv[vv].position += buf[cntm * NUMMORPH + now][vv].position * (1 - weight) + buf[cntm * NUMMORPH + dst][vv].position * weight;
+                        morphmv[vv].normal += buf[cntm * NUMMORPH + now][vv].normal * (1 - weight) + buf[cntm * NUMMORPH + dst][vv].normal * weight;
                     }
                 }
                 auto matpos = matskin.transform(Float4(morphmv[vv].position, 1.0f)); //モーフィング部分のみ動的スキニング
@@ -1346,7 +1346,7 @@ int32 MaplePos2Idx(Float3 flt3, ChunkMap& chunkmap)
     int32 x = int32(flt3.x - cpos.x + 0.5);
     int32 y = int32(flt3.y - cpos.y + 0.5);
     int32 z = int32(flt3.z - cpos.z + 0.5);
-    if (x < 0 || y < 0 || z < 0 || x >= cwhd.x || y >= cwhd.y || z >= cwhd.z) return 0;
+    if (x < 0 || y < 0 || z < 0 || x >= cwhd.x || y >= cwhd.y || z >= cwhd.z) return -1;
     return x + z * cwhd.x + y * cwhd.x * cwhd.z;
 }
 
@@ -1683,6 +1683,7 @@ void LoadMaple(MapleMap& maple, ChunkMap& chunkmap, ChunkMap& chunkatr, CSVReade
                     gltfSetupModel(noamodel, model);
                     mi.NoAModels.emplace_back(noamodel);
                 }
+                maple.Maples.emplace_back(mi);
             }
             else                        // 単一glTF(numframe=1)
             {
