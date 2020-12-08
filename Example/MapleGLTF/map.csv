@@ -1,21 +1,25 @@
+
 // 空間定義
 /chunk,size(32,32,32),trans(0,0,0)
 
 // 物体定義
 /entity,type'物',file'＃:Block1.glb',   trans(0,0,0), scale(1,1,1),rotate(0,0,0), spin(0,0,0),mode('連',1)
 /entity,type'物',file'Ｓ:Siv3DKun2.glb',trans(2,10,-2), scale(1,1,1),rotate(0,0,0), spin(0,0,0),mode('ア', -1, 2)
+/entity,type'物',file'海:Sea(0).glb' ,  trans(0,-10,0),scale(1,1,1),rotate(0,0,0),spin(0,0,0),mode('連',16)
+/entity,type'物',file'街:City(0).glb',  trans(0,0,0),scale(0.5,0.5,0.5), rotate(0,0,0),spin(0,0,0),mode('乱',8)
 
 // 物体マップ
 /def
-/xz,name'F0',pos(0,0,0),size(8,8,1), /xz,name'F1',pos(0,0,1),size(8,8,1), 
+/xz,name'F0',pos(0,0,0),size(8,8,1), /xz,name'F1',pos(0,0,1),size(8,8,1), /xz,name'City',pos(0,0,5),size(8,8,1) 
 
 /map
-Ｓ＃＃＃＃＃＃　,　　　　　　　　
-＃＃＃＃＃＃＃＃,　　　　　　　　
-＃＃＃＃＃＃＃＃,　　　　　　　　
-＃＃＃＃＃＃＃＃,　　　　＃＃　　
-＃＃＃＃＃＃＃＃,　　　＃＃＃＃　
-＃＃＃＃＃＃＃＃,　　　＃＃＃＃　
-＃＃＃＃＃＃＃＃,　　　　＃＃　　
-　＃＃＃＃＃＃　,　　　　　　　　
+Ｓ＃＃＃＃＃＃海,　　　　　　　　,街街街街街街街街
+＃＃＃＃＃＃＃＃,　　　　　　　　,街街街街街街街街
+＃＃＃＃＃＃＃＃,　　　　　　　　,街街街街街街街街
+＃＃＃＃＃＃＃＃,　　　　＃＃　　,街街街街街街街　
+＃＃＃＃＃＃＃＃,　　　＃＃＃＃　,街街街街街街　　
+＃＃＃＃＃＃＃＃,　　　＃＃＃＃　,街街街街街　　街
+＃＃＃＃＃＃＃＃,　　　　＃＃　　,街街街街　　街街
+　＃＃＃＃＃＃　,　　　　　　　　,街街街　　街街街
 /end
+
