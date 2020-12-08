@@ -4,7 +4,7 @@
 # Required environment
 Microsoft Visual Studio 2019 Version 16.8.2
 
-# Installation procedure
+# How to installation, and building
 
 Create a new folder that is not Japanese,Then open a prompt and, Get the set of project files with the following command.
 *If you install it in a Japanese folder, it will fail to browse the resource files.
