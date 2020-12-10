@@ -627,22 +627,14 @@ void gltfDrawMesh(NoAModel* noamodel, Entity& entity, Quaternion& rot, Float3& t
 
 
 //                     0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
-const uint32 A2M[] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //00 
+const uint8 A2M[] = {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //00 
                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //10 
                        0,35,36,37,38,39,40,41,42,43,53,55,60,47,61,93, //20  !"#$
                       25,26,27,28,29,30,34,31,32,33,94,54,58,44,59,56, //30 01234
                       64,90, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13, //40 @ABCD
                       14,15,16,17,18,19,20,21,22,23,24,62,49,63,48,57, //50 PQRST
                       50,91,65,66,67,68,69,70,71,72,73,74,75,76,77,78, //60 'abcd
-                      79,80,81,82,83,84,85,86,87,88,89,90,51,46,52,45, //70 pqrst
-                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //80 
-                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //90 
-                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //A0 
-                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //B0 
-                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //C0 
-                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //D0 
-                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //E0 
-                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };//F0 
+                      79,80,81,82,83,84,85,86,87,88,89,90,51,46,52,45 }; //70 pqrst 
 
 void gltfDrawString(NoAModel* model, String text, float kerning, float radius,
     Quaternion* qrotate, Float3& trans, Float3& scale,
@@ -674,7 +666,7 @@ void gltfDrawString(NoAModel* model, String text, float kerning, float radius,
         for (; i < len; i++)
         {
             auto ascii = text.substr(i, 1).narrow().c_str()[0];
-            auto& chr = A2M[ascii];
+            auto& chr = A2M[ascii&0x7F];
 
             if (!chr || ascii == ' ')
             {
@@ -717,7 +709,7 @@ void gltfDrawString(NoAModel* model, String text, float kerning, float radius,
         for (; ii < len; ii++)
         {
             auto ascii = text.substr(ii, 1).narrow().c_str()[0];
-            auto& chr = A2M[ascii];
+            auto& chr = A2M[ascii&0x7F];
 
             if (!chr || ascii == ' ') continue;
 
