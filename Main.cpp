@@ -116,10 +116,14 @@ void CtrlKeyboard(Entity* ent, ChunkMap& map)
             Float3 tra = Q0001.Yaw(Radians(DST[key_m])) * Vec3::Backward * 0.1; //でも、直接ターンにしないと操作性悪すぎ
 
             //当たり判定
-            auto wall_u = GetMap(ent->Trans + Float3(0, 1, 0) + tra * 10, map);// 上半身
-            auto wall_l = GetMap(ent->Trans + Float3(0, 0, 0) + tra * 10, map);// 下半身 移動成分ｘ10でちょい先読み
+            auto wall_u = GetMap(ent->Trans + Float3(0, 1, 0) + tra * 10, map); // 上半身
+            auto wall_l = GetMap(ent->Trans + Float3(0, 0, 0) + tra * 10, map); // 下半身 移動成分ｘ10でちょい先読み
 
             if (wall_u == L"　" && wall_l == L"　") ent->Trans = ent->Trans + tra;
+
+            auto under = GetMap( ent->Trans + Float3(0, -1, 0), map) ;
+            if (under == L"　") ent->Trans += Float3(0, -0.5, 0);
+            else ent->Trans.y = Floor(ent->Trans.y);                            //着地時の高さを再計算
 
             anime_s = ID_ANIME::RUN;
         }
@@ -278,17 +282,17 @@ void CtrlAction(MapleMap& maple, Entity* ent, ChunkMap& chunkmap, ChunkMap& chun
         }
 
         //床の重力ベクトル対応(床が動いていたら一緒に動かす)
-        auto atr_under = GetMap(ent->Trans + Float3(0, -1, 0), chunkmap);
-
-        auto nowidx = MaplePos2Idx(ent->Trans, chunkmap);         //現在位置の属性を取ってくる
-        auto name = (nowidx != -1) ? chunkatr.Text.substr(nowidx, 1): L"　";
-
-        for (auto& atr : maple.Attribs)
+        auto map_under = GetMap(ent->Trans + Float3(0, -1, 0), chunkmap);
+        if (map_under != L"　")  //足元に何かある
         {
-            if (atr.Name == name)                                   //取ってきた属性を選択
+            auto atr_under = GetMap(ent->Trans + Float3(0, -1, 0), chunkatr);
+            for (auto& atr : maple.Attribs)
             {
-                ent->Trans += atr.Trans;                             //属性の重力ベクトルを加算
-                break;
+                if (atr.Name == atr_under)                               //取ってきた属性を選択
+                {
+                    ent->Trans += atr.Trans;                             //属性の重力ベクトルを加算
+                    break;
+                }
             }
         }
     }
@@ -321,12 +325,23 @@ void Main()
 
     //専用制御(モーフ/可変アニメ)のEntityを取得
     Entity* ent_s = nullptr;        
+    Entity* ent_d = nullptr;        
+    Entity* ent_f = nullptr;        
     for (auto& ent : maple1.Entities)
     {
-        if (ent.Name == L"Ｓ")
+        if (ent.Name == L"Ｓ") //SIV3DKUNの初期化
         {
             ent_s = &ent;
             ent_s->Maple->ArgI = ID_ANIME::IDLE; //アニメ種類3：待ち
+        }
+        if (ent.Name == L"Ｄ") //情報ブロックの初期化
+        {
+            ent_d = &ent;
+            ent_d->Count = 100;
+        }
+        if (ent.Name == L"文") //文字列の初期化
+        {
+            ent_f = &ent;
         }
     }
 
@@ -346,14 +361,34 @@ void Main()
         CtrlAction(maple1, ent_s, map1, atr1);      // 行動制御
         RenderMaple(maple1, map1, atr1);            // 描画
 
+        //情報ブロック表示
+        if (ent_d)
+        {
+            ent_d->Trans = ent_s->Trans;
+            ent_d->Trans.y = ent_s->Trans.y + 1;
+            ent_d->Maple->Mode = String(L"円:MapPosition X=(X) Y=(Y) Z=(Z)")
+                .replace(L"(X)", Format(ent_s->Trans.x))
+                .replace(L"(Y)", Format(ent_s->Trans.y))
+                .replace(L"(Z)", Format(ent_s->Trans.z));
+        }
+
+        //文字列表示
+        if (ent_f)
+        {
+            static float vel = 0.1;
+            ent_f->Count += vel;
+            if ((vel > 0 && ent_f->Count > ent_f->Maple->Mode.length-2) || 
+                (vel < 0 && ent_f->Count < 0) ) vel *= -1;
+        }
+
         //物体マップ表示
-        int32 dd = map1.MapSize.z;
-        int32 ww = map1.MapSize.x;
+        auto &dd = map1.MapSize.z;
+        auto &ww = map1.MapSize.x;
         for (int32 yy = 0; yy < dd ; yy++)           
         {
-            for (int32 xx = 0; xx < map1.MapSize.x; xx++)
+            for (int32 xx = 0; xx < ww; xx++)
             {
-                int32 idx = MaplePos2Idx(xx, 1, dd-1 - yy, ww, 1, dd);
+                int32 idx = MaplePos2Idx(xx, 1, (dd-1) - yy, 32, 32, 32);
                 auto cc = map1.Text.substr(idx, 1);
                 FontM(cc).draw(xx * 8, yy * 8);
             }
@@ -362,8 +397,8 @@ void Main()
         //フレームレート表示
         auto ms2 = stopwatch.ms();  
         static float fps = 0;
-        fps *= 1.0f - 0.1f;
-        fps += float(ms2 - ms1) * 0.1f;
+        fps *= 1.0f - 0.01f;
+        fps += float(ms2 - ms1) * 0.01f;
         FontT(String(L"Render:(FPS)/Fps")
             .replace(L"(FPS)", Format(int32(1000.0 / fps))))
             .draw(WW - 300, HH - 80);
