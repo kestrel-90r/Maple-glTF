@@ -1379,7 +1379,6 @@ void RenderMaple(MapleMap& maple, ChunkMap& chunkmap, ChunkMap& chunkatr)
         auto& animodel = cfg->AniModel;  //ANIモデルへの参照
         auto  noamodel = cfg->NoAModels; //NOAモデルのフレーム配列へのポインタ
 
-        //こういのデフォルトで用意するのは良しとしても最後はユーザー処理をオーバーライドしたい。
         if (cfg->Mode == L"連" && noamodel.size() > 1) //モードが連番GLTF
         {
             auto frame = ((++ent.Frame) & 0x07C) >> 2;              //カウンタを1/4で連番を進める
@@ -1394,8 +1393,8 @@ void RenderMaple(MapleMap& maple, ChunkMap& chunkmap, ChunkMap& chunkatr)
         // glTFフォント：描画先頭文字、描画終端文字、整数部は描画文字数、小数部は筆順表現、負は全字同時筆順
         else if (cfg->Mode.substr(0, 1) == L"線")
         {
-            float radius = ent.Maple->ArgI;    //直線文字列で半径とは？
-            float kerning = ent.Maple->ArgF;                                                           //文字列のカーニング量
+            float radius = ent.Maple->ArgI;
+            float kerning = ent.Maple->ArgF;                                              //文字列のカーニング量
             if (!ent.Maple->qSpin[0].isIdentity()) ent.qRotate[0] *= ent.Maple->qSpin[0]; //文字回転
             if (!ent.Maple->qSpin[1].isIdentity()) ent.qRotate[1] *= ent.Maple->qSpin[1]; //文字列回転
 
@@ -1404,11 +1403,10 @@ void RenderMaple(MapleMap& maple, ChunkMap& chunkmap, ChunkMap& chunkatr)
                 (size_t)Floor(ent.Start), ent.Count);
         }
 
-        //筆順表現の進度を格納する変数がないかも
         else if (cfg->Mode.substr(0, 1) == L"円")
         {
             float radius = ent.Maple->ArgI;
-            float kerning = ent.Maple->ArgF;                                                              //文字列のカーニング量
+            float kerning = ent.Maple->ArgF;                                              //文字列のカーニング量
             if (!ent.Maple->qSpin[0].isIdentity()) ent.qRotate[0] *= ent.Maple->qSpin[0]; //文字回転
             if (!ent.Maple->qSpin[1].isIdentity()) ent.qRotate[1] *= ent.Maple->qSpin[1]; //文字列回転
 
@@ -1427,8 +1425,8 @@ void RenderMaple(MapleMap& maple, ChunkMap& chunkmap, ChunkMap& chunkatr)
                 (size_t)Floor(ent.Start), ent.Count);
         }
 
-        //アニメNo＝-1は、すべてのアニメをデコードする。操作で切り替える場合に使用する。
-        //アニメNo指定の場合は1つのみ。省メモリ
+        //アニメNo＝-1は、すべてのアニメをデコードする。操作で切り替える場合に使用
+        //アニメNo指定の場合は1つのみ
         else if (cfg->Mode == L"ア")    //アニメ付GLTF
         {
             gltfDrawSkinMesh(animodel, ent);
