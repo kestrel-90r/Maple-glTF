@@ -3,23 +3,46 @@
 /chunk,size(32,32,32),trans(0,0,0)
 
 // 物体定義
-/entity,type'物',file'＃:Block1.glb',   trans(0,0,0), scale(1,1,1),rotate(0,0,0), spin(0,0,0),mode('連',1)
-/entity,type'物',file'Ｓ:Siv3DKun2.glb',trans(2,10,-2), scale(1,1,1),rotate(0,0,0), spin(0,0,0),mode('ア', -1, 2)
-/entity,type'物',file'海:Sea(0).glb' ,  trans(0,-10,0),scale(1,1,1),rotate(0,0,0),spin(0,0,0),mode('連',16)
-/entity,type'物',file'街:City(0).glb',  trans(0,0,0),scale(0.5,0.5,0.5), rotate(0,0,0),spin(0,0,0),mode('乱',8)
+/entity,type'物',file'＃:Block1.glb',   trans(0,0,0), scale(1,1,1),rotate(0,0,0), spin(0,0,0),attr(0,0),mode('連',1)
+/entity,type'物',file'Ｓ:Siv3DKun2.glb',trans(2,10,-2), scale(1,1,1),rotate(0,0,0), spin(0,0,0),attr(0,0),mode('ア', -1, 2)
+/entity,type'物',file'海:Sea(0).glb' ,  trans(0,-10,0),scale(1,1,1),rotate(0,0,0),spin(0,0,0),attr(0,0),mode('連',16)
+/entity,type'物',file'街:City(0).glb',  trans(0,0,0),scale(0.5,0.5,0.5), rotate(0,0,0),spin(0,0,0),attr(0,0),mode('乱',8)
+/entity,type'物',file'夜:SkydomeN.glb', trans(0,0,0),scale(1000,1000,1000),rotate(0,0,0),spin(0.008,0.005,0),attr(0,0),mode('連',1)
+/entity,type'字',file'文:ToD4UI4.glb',  trans(0,1,0)   ,scale(20,20,20), rotate(0,90,0,0,0,0),spin(0,0,0,  0,0, 0),attr(0,0),mode('線:https://github.com/itakawa/maple-GLTF/',1,0.9)
+/entity,type'字',file'Ｄ:ToD4UI4.glb',  trans(16,1,-16),scale(10,10,10), rotate(0,90,90,0,0,0),spin(0,0,-1, 0,0,-1),attr(0,0),mode('円：(DEBUG)',2,6)
+
+/entity,type'物',file'＠:TreasureBox.glb',trans(0,0,0), scale(1,1,1),    rotate(0,0,0),spin(0,0,1),attr(1,0),mode('連',1)
+
+// 属性定義
+/attr,type'流',name'↑', trans(    0,0, 0.05),scale(1,1,1), rotate(0,  0,0),mode('空',0,0),tag'<while:0:10><if:><true:><false:><wait:><endwhile:>'
+/attr,type'流',name'→', trans( 0.05.0,    0),scale(1,1,1), rotate(0, 90,0),mode('空',0,0),tag'<if:><true:><false:><anime:>'
+/attr,type'流',name'↓', trans(    0,0,-0.05),scale(1,1,1), rotate(0,180,0),mode('空',0,0),tag'<set:><get:>'
+/attr,type'流',name'←', trans(-0.05,0,    0),scale(1,1,1), rotate(0,270,0),mode('空',0,0),tag'<var:><event:>'
 
 // 物体マップ
 /def
 /xz,name'F0',pos(0,0,0),size(8,8,1), /xz,name'F1',pos(0,0,1),size(8,8,1), /xz,name'City',pos(0,0,5),size(8,8,1) 
 
 /map
-Ｓ＃＃＃＃＃＃海,　　　　　　　　,街街街街街街街街
+Ｓ＃＃＃＃＃＃海,文　　　　　　＠,街街街街街街街街
 ＃＃＃＃＃＃＃＃,　　　　　　　　,街街街街街街街街
-＃＃＃＃＃＃＃＃,　　　　　　　　,街街街街街街街街
+＃＃＃＃＃＃＃＃,　　　　　　　　,街街　街街街街街
 ＃＃＃＃＃＃＃＃,　　　　＃＃　　,街街街街街街街　
-＃＃＃＃＃＃＃＃,　　　＃＃＃＃　,街街街街街街　　
-＃＃＃＃＃＃＃＃,　　　＃＃＃＃　,街街街街街　　街
-＃＃＃＃＃＃＃＃,　　　　＃＃　　,街街街街　　街街
-　＃＃＃＃＃＃　,　　　　　　　　,街街街　　街街街
-/end
+＃＃＃＃＃＃＃＃,　　　＃＃＃　　,街街街街街街　　
+＃＃＃＃＃＃＃＃,　　　＃＃＃　　,街街街街街　　街
+＃＃＃＃＃＃＃＃,　　　　　　　　,街街街街　　街街
+夜＃＃＃＃＃＃Ｄ,　　　　　　　　,街街街　　街街街
 
+// 属性マップ
+/def
+/xz,name'L1',layer(1),pos(0,0,1),size(8,8,1)
+/atr
+↓←←←←←←←
+↓　　　　　　↑
+↓　　　　　　↑
+↓　　　　　　↑
+↓　　　　　　↑
+↓　　　　　　↑
+↓　　　　　　↑
+→→→→→→→↑
+/end
