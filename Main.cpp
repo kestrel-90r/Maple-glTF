@@ -346,15 +346,15 @@ void Main()
     }
 
     //ストップウォッチ開始
-    Stopwatch stopwatch;
-    stopwatch.start();              
+//    Stopwatch stopwatch;
+//    stopwatch.start();              
 
     while (System::Update())
     {
+        auto begin = std::chrono::high_resolution_clock::now();
+
         Graphics3D::FreeCamera();
         camera = Graphics3D::GetCamera();
-
-        auto ms1 = stopwatch.ms();
 
         CtrlKeyboard(ent_s, map1);                  // キー入力制御 [1]：←[2]：↓[3]：→[5]：↑[M]：ジャンプ[B]:掘る
         CtrlMorph(ent_s);                           // モーフィング制御
@@ -395,12 +395,11 @@ void Main()
         }
 
         //フレームレート表示
-        auto ms2 = stopwatch.ms();  
-        static float fps = 0;
-        fps *= 1.0f - 0.01f;
-        fps += float(ms2 - ms1) * 0.01f;
+        Profiler::FPS();
+
         FontT(String(L"Render:(FPS)/Fps")
-            .replace(L"(FPS)", Format(int32(1000.0 / fps))))
+            .replace(L"(FPS)", Format(Profiler::FPS())))
             .draw(WW - 300, HH - 80);
+
     }
 }
