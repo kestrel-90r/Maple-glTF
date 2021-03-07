@@ -186,36 +186,39 @@ struct MapleMap
 
 void gltfCalcSkeleton(tinygltf::Model& model, tinygltf::Node& node, Mat4x4& matparent);
 
-tinygltf::Buffer* getBuffer(tinygltf::Model& gltfmodel, tinygltf::Primitive& pr, int* offset, int* stride)
+tinygltf::Buffer* getBuffer(tinygltf::Model& gltfmodel, tinygltf::Primitive& pr, int* offset, int* stride, int* componenttype)
 {
     if (pr.indices == -1) return nullptr;
-    auto& ai = gltfmodel.accessors[pr.indices];
-    auto& bi = gltfmodel.bufferViews[ai.bufferView];
-    auto& buf = gltfmodel.buffers[bi.buffer];
+    tinygltf::Accessor& ai = gltfmodel.accessors[pr.indices];
+    tinygltf::BufferView& bi = gltfmodel.bufferViews[ai.bufferView];
+    tinygltf::Buffer& buf = gltfmodel.buffers[bi.buffer];
     *offset = bi.byteOffset + ai.byteOffset;
     *stride = ai.ByteStride(bi);
+    *componenttype = ai.componentType;
     return &buf;
 }
 
-tinygltf::Buffer* getBuffer(tinygltf::Model& gltfmodel, tinygltf::Primitive& pr, const std::string attr, int* offset, int* stride)
+tinygltf::Buffer* getBuffer(tinygltf::Model& gltfmodel, tinygltf::Primitive& pr, const std::string attr, int* offset, int* stride, int* componenttype)
 {
     if (pr.attributes.size() == 0) return nullptr;
-    auto& ap = gltfmodel.accessors[pr.attributes[attr]];
-    auto& bp = gltfmodel.bufferViews[ap.bufferView];
-    auto& buf = gltfmodel.buffers[bp.buffer];
+    tinygltf::Accessor& ap = gltfmodel.accessors[pr.attributes[attr]];
+    tinygltf::BufferView& bp = gltfmodel.bufferViews[ap.bufferView];
+    tinygltf::Buffer& buf = gltfmodel.buffers[bp.buffer];
     *offset = bp.byteOffset + ap.byteOffset;
     *stride = ap.ByteStride(bp);
+    *componenttype = ap.componentType;
     return &buf;
 }
 
-static tinygltf::Buffer* getBuffer(tinygltf::Model& model, tinygltf::Primitive& pr, int32 morphtarget, const char* attr, int* offset, int* stride)
+static tinygltf::Buffer* getBuffer(tinygltf::Model& model, tinygltf::Primitive& pr, int32 morphtarget, const char* attr, int* offset, int* stride, int* componenttype)
 {
     if (pr.targets.size() == 0) return nullptr;
-    auto& at = model.accessors[pr.targets[morphtarget].at(attr)];
-    auto& bt = model.bufferViews[at.bufferView];
-    auto& buf = model.buffers[bt.buffer];
-    *offset = bt.byteOffset + at.byteOffset;
-    *stride = at.ByteStride(bt);
+    tinygltf::Accessor& ap = model.accessors[pr.targets[morphtarget].at(attr)];
+    tinygltf::BufferView& bp = model.bufferViews[ap.bufferView];
+    tinygltf::Buffer& buf = model.buffers[bp.buffer];
+    *offset = bp.byteOffset + ap.byteOffset;
+    *stride = ap.ByteStride(bp);
+    *componenttype = ap.componentType;
     return &buf;
 }
 
@@ -280,13 +283,14 @@ void gltfSetupMesh(NoAModel& noamodel, tinygltf::Model& gltfmodel, tinygltf::Nod
         auto& map = gltfmodel.accessors[pr.attributes["POSITION"]];
 
         int32 opos = 0, otex = 0, onormal = 0, ojoints = 0, oweights = 0, oidx = 0, stride = 0, texstride = 0;
+        int32 type_p = 0,type_t = 0,type_n = 0,type_j = 0,type_w = 0,type_i = 0;
 
-        auto& bpos = *getBuffer(gltfmodel, pr, "POSITION", &opos, &stride);
-        auto& btex = *getBuffer(gltfmodel, pr, "TEXCOORD_0", &otex, &texstride);
-        auto& bnormal = *getBuffer(gltfmodel, pr, "NORMAL", &onormal, &stride);
-        auto& bjoint = *getBuffer(gltfmodel, pr, "JOINTS_0", &ojoints, &stride);
-        auto& bweight = *getBuffer(gltfmodel, pr, "WEIGHTS_0", &oweights, &stride);
-        auto& bidx = *getBuffer(gltfmodel, pr, &oidx, &stride);
+        auto& bpos = *getBuffer(gltfmodel, pr, "POSITION", &opos, &stride, &type_p);
+        auto& btex = *getBuffer(gltfmodel, pr, "TEXCOORD_0", &otex, &texstride, &type_t);
+        auto& bnormal = *getBuffer(gltfmodel, pr, "NORMAL", &onormal, &stride, &type_n);
+        auto& bjoint = *getBuffer(gltfmodel, pr, "JOINTS_0", &ojoints, &stride, &type_j);
+        auto& bweight = *getBuffer(gltfmodel, pr, "WEIGHTS_0", &oweights, &stride, &type_w);
+        auto& bidx = *getBuffer(gltfmodel, pr, &oidx, &stride, &type_i);
 
         //頂点座標を生成
         Array<MeshVertex> vertices;
@@ -315,10 +319,16 @@ void gltfSetupMesh(NoAModel& noamodel, tinygltf::Model& gltfmodel, tinygltf::Nod
             {
                 Mat4x4 matskin = Mat4x4().Identity();
 
-                auto joint = (uint16_t*)&bjoint.data.at(vv * 8 + ojoints);//1頂点あたり4JOINT
-                auto weight = (float*)&bweight.data.at(vv * 16 + oweights);
-                Word4  j4 = Word4(joint[0], joint[1], joint[2], joint[3]);
-                Float4 w4 = Float4(weight[0], weight[1], weight[2], weight[3]);
+                uint8 *jb = (uint8*)&bjoint.data.at(vv * 4 + ojoints); //1頂点あたり4JOINT
+                uint16 *jw = (uint16*)&bjoint.data.at(vv * 8 + ojoints);
+
+                float *wf = (float*)&bweight.data.at(vv * 16 + oweights);
+
+                Word4 j4 = (type_j == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) ? Word4(jw[0],jw[1],jw[2],jw[3]) :
+                           (type_j == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) ? Word4(jb[0],jb[1],jb[2],jb[3]) : 
+                            Word4(0,0,0,0);
+
+                Float4 w4 = Float4(wf[0], wf[1], wf[2], wf[3]);
 
                 //4ジョイント合成
                 matskin = w4.x * noamodel.Joints[node.skin][j4.x] +
@@ -433,9 +443,9 @@ void gltfSetupMorph(tinygltf::Model& gltfmodel, tinygltf::Node& node, MorphMesh&
             //Meshes->Primitive->Accessor(p,i)->BufferView(p,i)->Buffer(p,i)
             Array<MeshVertex> vertices;
 
-            int32 offsetpos = 0, offsetnor = 0, stride = 0;
-            auto basispos = getBuffer(gltfmodel, pr, "POSITION", &offsetpos, &stride);
-            auto basisnor = getBuffer(gltfmodel, pr, "NORMAL", &offsetnor, &stride);
+            int32 offsetpos = 0, offsetnor = 0, stride = 0, type = 0;
+            auto basispos = getBuffer(gltfmodel, pr, "POSITION", &offsetpos, &stride, &type);
+            auto basisnor = getBuffer(gltfmodel, pr, "NORMAL", &offsetnor, &stride, &type);
 
 
             //元メッシュ(basis)の頂点座標バッファを生成
@@ -457,9 +467,9 @@ void gltfSetupMorph(tinygltf::Model& gltfmodel, tinygltf::Node& node, MorphMesh&
             for (int32 tt = 0; tt < pr.targets.size(); tt++)
             {
                 //Meshes->Primitive->Target->POSITION->Accessor(p,i)->BufferView(p,i)->Buffer(p,i)
-                int32 offsetpos = 0, offsetnor = 0, stride = 0;
-                auto mtpos = getBuffer(gltfmodel, pr, tt, "POSITION", &offsetpos, &stride);
-                auto mtnor = getBuffer(gltfmodel, pr, tt, "NORMAL", &offsetnor, &stride);
+                int32 offsetpos = 0, offsetnor = 0, stride = 0, type = 0;
+                auto mtpos = getBuffer(gltfmodel, pr, tt, "POSITION", &offsetpos, &stride, &type);
+                auto mtnor = getBuffer(gltfmodel, pr, tt, "NORMAL", &offsetnor, &stride, &type);
 
                 Array<MeshVertex> vertices;
                 //モーフターゲットメッシュの頂点座標バッファを生成
@@ -634,7 +644,15 @@ const uint8 A2M[] = {  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //00
                       64,90, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13, //40 @ABCD
                       14,15,16,17,18,19,20,21,22,23,24,62,49,63,48,57, //50 PQRST
                       50,91,65,66,67,68,69,70,71,72,73,74,75,76,77,78, //60 'abcd
-                      79,80,81,82,83,84,85,86,87,88,89,90,51,46,52,45 }; //70 pqrst 
+                      79,80,81,82,83,84,85,86,87,88,89,90,51,46,52,45, //70 pqrst
+                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //80 
+                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //90 
+                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //A0 
+                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //B0 
+                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //C0 
+                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //D0 
+                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //E0 
+                       0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };//F0 
 
 void gltfDrawString(NoAModel* model, String text, float kerning, float radius,
     Quaternion* qrotate, Float3& trans, Float3& scale,
@@ -1122,14 +1140,14 @@ void gltfPrecomputeMesh(tinygltf::Model& model, int32 idxframe, AnimeModel& anim
         auto& pr = model.meshes[node.mesh].primitives[pp];
         auto& map = model.accessors[pr.attributes["POSITION"]];
 
-        int32 opos = 0, otex = 0, onormal = 0, ojoints = 0, oweights = 0, oidx = 0, stride = 0, texstride = 0;
+        int32 opos = 0, otex = 0, onormal = 0, ojoints = 0, oweights = 0, oidx = 0, stride = 0, texstride = 0, type=0 ;
 
-        auto& bpos = *getBuffer(model, pr, "POSITION", &opos, &stride);
-        auto& btex = *getBuffer(model, pr, "TEXCOORD_0", &otex, &texstride);
-        auto& bnormal = *getBuffer(model, pr, "NORMAL", &onormal, &stride);
-        auto& bjoint = *getBuffer(model, pr, "JOINTS_0", &ojoints, &stride);
-        auto& bweight = *getBuffer(model, pr, "WEIGHTS_0", &oweights, &stride);
-        auto& bidx = *getBuffer(model, pr, &oidx, &stride);
+        auto& bpos = *getBuffer(model, pr, "POSITION", &opos, &stride, &type);
+        auto& btex = *getBuffer(model, pr, "TEXCOORD_0", &otex, &texstride, &type);
+        auto& bnormal = *getBuffer(model, pr, "NORMAL", &onormal, &stride, &type);
+        auto& bjoint = *getBuffer(model, pr, "JOINTS_0", &ojoints, &stride, &type);
+        auto& bweight = *getBuffer(model, pr, "WEIGHTS_0", &oweights, &stride, &type);
+        auto& bidx = *getBuffer(model, pr, &oidx, &stride, &type);
 
         Array<MeshVertex> vertices;
         for (int32 vv = 0; vv < map.count; vv++)
@@ -1195,6 +1213,7 @@ void gltfPrecomputeMesh(tinygltf::Model& model, int32 idxframe, AnimeModel& anim
 
             vertices.clear();
             indices.clear();
+            
         }
 
         auto texcol = 0;// テクスチャ頂点色識別子 b0=頂点色 b1=テクスチャ
@@ -1386,7 +1405,7 @@ void RenderMaple(MapleMap& maple, ChunkMap& chunkmap, ChunkMap& chunkatr)
         else if (cfg->Mode.substr(0, 1) == L"線")
         {
             float radius = ent.Maple->ArgI;
-            float kerning = ent.Maple->ArgF;                                              //文字列のカーニング量
+            float kerning = ent.Maple->ArgF;                                                           //文字列のカーニング量
             if (!ent.Maple->qSpin[0].isIdentity()) ent.qRotate[0] *= ent.Maple->qSpin[0]; //文字回転
             if (!ent.Maple->qSpin[1].isIdentity()) ent.qRotate[1] *= ent.Maple->qSpin[1]; //文字列回転
 
@@ -1398,7 +1417,7 @@ void RenderMaple(MapleMap& maple, ChunkMap& chunkmap, ChunkMap& chunkatr)
         else if (cfg->Mode.substr(0, 1) == L"円")
         {
             float radius = ent.Maple->ArgI;
-            float kerning = ent.Maple->ArgF;                                              //文字列のカーニング量
+            float kerning = ent.Maple->ArgF;                                                              //文字列のカーニング量
             if (!ent.Maple->qSpin[0].isIdentity()) ent.qRotate[0] *= ent.Maple->qSpin[0]; //文字回転
             if (!ent.Maple->qSpin[1].isIdentity()) ent.qRotate[1] *= ent.Maple->qSpin[1]; //文字列回転
 
@@ -1668,7 +1687,11 @@ void LoadMaple(MapleMap& maple, ChunkMap& chunkmap, ChunkMap& chunkatr, CSVReade
                 for (auto ii = 0; ii < numframes; ii++)
                 {
                     auto filename = pre + Format(ii) + post;
-                    bool result = loader.LoadBinaryFromFile(&model, &err, &warn, (maplepath + filename).narrow());
+                    bool result = false;
+                    if( result = loader.LoadBinaryFromFile(&model, &err, &warn, (maplepath + filename).narrow()) ) 
+                        if( result = loader.LoadASCIIFromFile(&model, &err, &warn, (maplepath + filename).narrow()) )
+                            assert(result = false) ;
+                    
                     NoAModel noamodel;
                     gltfSetupModel(noamodel, model);
                     mi.NoAModels.emplace_back(noamodel);
@@ -1680,15 +1703,18 @@ void LoadMaple(MapleMap& maple, ChunkMap& chunkmap, ChunkMap& chunkatr, CSVReade
                 if (mi.Mode == L"ア")  //アニメ対応GLTF
                 {
                     bool result = loader.LoadBinaryFromFile(&model, &err, &warn, (maplepath + mi.Filename).narrow());
-                    if( result ) result = loader.LoadASCIIFromFile(&model, &err, &warn, (maplepath + mi.Filename).narrow());
-//                    gltfSetupModel( mi.AniModel, model, mi.ArgI);
+                    if (!result) result = loader.LoadASCIIFromFile(&model, &err, &warn, (maplepath + mi.Filename).narrow());
+                        if (!result) assert(true);
+
                     maple.Maples.emplace_back(mi);
                     gltfSetupModel( maple.Maples.back(), model, mi.ArgI);
                 }
                 else                    //アニメなしGLTF
                 {
                     bool result = loader.LoadBinaryFromFile(&model, &err, &warn, (maplepath + mi.Filename).narrow());
-                    if( result ) result = loader.LoadASCIIFromFile(&model, &err, &warn, (maplepath + mi.Filename).narrow());
+                    if (!result) result = loader.LoadASCIIFromFile(&model, &err, &warn, (maplepath + mi.Filename).narrow());
+                        if (!result) assert(true);
+                    
                     NoAModel noamodel;
                     gltfSetupModel(noamodel, model);
                     mi.NoAModels.emplace_back(noamodel);
