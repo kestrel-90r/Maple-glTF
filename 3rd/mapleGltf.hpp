@@ -768,7 +768,7 @@ void gltfInterpolateStep(tinygltf::Model& model, Channel& ch, int32 lowframe);
 void gltfInterpolateLinear(tinygltf::Model& model, Channel& ch, int32 lowframe, int32 uppframe, float weight);
 void gltfInterpolateSpline(tinygltf::Model& model, Channel& ch, int32 lowframe, int32 uppframe, float lowtime, float upptime, float weight);
 void gltfPrecomputeMesh(tinygltf::Model& model, int32 idxframe, AnimeModel& animodel, int32 aid, tinygltf::Node& node);
-void gltfSetupAnime(AnimeModel& animodel, tinygltf::Model& model, int32 aid, int32 interpolate);
+void gltfSetupAnime(AnimeModel& animodel, tinygltf::Model& gltfmodel, uint32 animeid, uint32 cycleframe);
 
 //void gltfSetupModel( AnimeModel& animodel, tinygltf::Model& gltfmodel, int32 anime)
 void gltfSetupModel( MapleInfo &mi, tinygltf::Model& gltfmodel, int32 anime)
@@ -791,35 +791,33 @@ void gltfSetupModel( MapleInfo &mi, tinygltf::Model& gltfmodel, int32 anime)
     if (anime == -1)                                //全アニメデコード対象
     {
         for (auto aid = 0; aid < gltfmodel.animations.size(); aid++)
-            gltfSetupAnime( mi.AniModel, gltfmodel, aid, 1);
+            gltfSetupAnime( mi.AniModel, gltfmodel, aid, 30 );
     }
     else
-        gltfSetupAnime( mi.AniModel, gltfmodel, anime, 1); //1アニメデコード対象
+        gltfSetupAnime( mi.AniModel, gltfmodel, anime, 30); //1アニメデコード対象
 }
 
-void gltfSetupAnime(AnimeModel& animodel, tinygltf::Model& gltfmodel, int32 aid, int32 interpolate)
+void gltfSetupAnime(AnimeModel& animodel, tinygltf::Model& gltfmodel, uint32 animeid, uint32 cycleframe)
 {
-    auto& man = gltfmodel.animations[aid];
+    auto& man = gltfmodel.animations[animeid];
     auto& mas = man.samplers;
     auto& mac = man.channels;
     auto& macc = gltfmodel.accessors;
     auto& mbv = gltfmodel.bufferViews;
     auto& mb = gltfmodel.buffers;
 
-    auto cycleframe = man.channels.size()*interpolate;         // ループアニメ1周のフレーム数
-
-    auto begin = macc[mas[0].input].minValues[0];               // 現在時刻
-    auto end = macc[mas[0].input].maxValues[0];                 // ループアニメ周期（アニメーション時間の最大はSamplerInputの最終要素に記録されてる）
-    auto frametime = (end - begin) / cycleframe;                // 1フレーム時間
-    auto currenttime = begin;
-    auto cycletime = end;
+    auto begintime = macc[mas[0].input].minValues[0];               // 開始時刻
+    auto endtime = macc[mas[0].input].maxValues[0];                 // 終了時刻（アニメーション時間の最大はSamplerInputの最終要素に記録されてる）
+    auto frametime = (endtime - begintime) / cycleframe;                // 1フレーム時間
+    auto currenttime = begintime;
+    auto cycletime = endtime;
 
     //全フレームの補間形式(step,linear,3dspline)、フレーム時刻、delta(移動,回転,拡縮,ウェイト)を収集
-    animodel.precAnimes[aid].Frames.resize(cycleframe);
+    animodel.precAnimes[animeid].Frames.resize(cycleframe);
     for (int32 cf = 0; cf < cycleframe; cf++)
     {
-        auto& as = animodel.precAnimes[aid].Frames[cf].Samplers;
-        auto& ac = animodel.precAnimes[aid].Frames[cf].Channels;
+        auto& as = animodel.precAnimes[animeid].Frames[cf].Samplers;
+        auto& ac = animodel.precAnimes[animeid].Frames[cf].Channels;
         as.resize(mas.size());
         ac.resize(mac.size());
 
@@ -933,9 +931,9 @@ void gltfSetupAnime(AnimeModel& animodel, tinygltf::Model& gltfmodel, int32 aid,
         }
 
         // 姿勢確定
-        for (auto& ch : animodel.precAnimes[aid].Frames[cf].Channels)
+        for (auto& ch : animodel.precAnimes[animeid].Frames[cf].Channels)
         {
-            auto& sa = animodel.precAnimes[aid].Frames[cf].Samplers[ch.idxSampler];
+            auto& sa = animodel.precAnimes[animeid].Frames[cf].Samplers[ch.idxSampler];
 
             std::pair<int, float> f0, f1;
             size_t kf;
@@ -972,10 +970,9 @@ void gltfSetupAnime(AnimeModel& animodel, tinygltf::Model& gltfmodel, int32 aid,
             }
         }
 
-        Mat4x4 matinverse = Mat4x4().Identity();        //この記述は適当
-
-        animodel.precAnimes[aid].Joints.clear();
-        animodel.precAnimes[aid].Joints.resize(gltfmodel.skins.size());
+        Mat4x4 matinverse = Mat4x4().Identity();
+        animodel.precAnimes[animeid].Joints.clear();
+        animodel.precAnimes[animeid].Joints.resize(gltfmodel.skins.size());
 
         for (int32 nn = 0; nn < gltfmodel.scenes[0].nodes.size(); nn++)
         {
@@ -1000,7 +997,7 @@ void gltfSetupAnime(AnimeModel& animodel, tinygltf::Model& gltfmodel, int32 aid,
                     Mat4x4 matworld = toMat(skeletonode.extensions["matworld"]);
                     Mat4x4 matjoint = ibm * matworld * matinverse;
 
-                    animodel.precAnimes[aid].Joints[node.skin].emplace_back(matjoint);
+                    animodel.precAnimes[animeid].Joints[node.skin].emplace_back(matjoint);
                 }
             }
         }
@@ -1014,14 +1011,17 @@ void gltfSetupAnime(AnimeModel& animodel, tinygltf::Model& gltfmodel, int32 aid,
                 if (node.mesh >= 0)//メッシュノード　
                 {
                     //現在のノード(メッシュ)を描画(前計算)
-                    gltfPrecomputeMesh(gltfmodel, cf, animodel, aid, node);
+                    gltfPrecomputeMesh(gltfmodel, cf, animodel, animeid, node);
 
                     if (cf == 0) //最初のフレームでモーフィング情報取得
                         gltfSetupMorph(gltfmodel, node, animodel.morphMesh);
                 }
             }
-            currenttime += frametime;   //次のフレーム時刻に進める
         }
+
+        currenttime += frametime;   //次のフレーム時刻に進める
+        if( currenttime > endtime ) break ;
+       
     }
 }
 
@@ -1142,12 +1142,13 @@ void gltfPrecomputeMesh(tinygltf::Model& model, int32 idxframe, AnimeModel& anim
 
         int32 opos = 0, otex = 0, onormal = 0, ojoints = 0, oweights = 0, oidx = 0, stride = 0, texstride = 0, type=0 ;
 
-        auto& bpos = *getBuffer(model, pr, "POSITION", &opos, &stride, &type);
-        auto& btex = *getBuffer(model, pr, "TEXCOORD_0", &otex, &texstride, &type);
-        auto& bnormal = *getBuffer(model, pr, "NORMAL", &onormal, &stride, &type);
-        auto& bjoint = *getBuffer(model, pr, "JOINTS_0", &ojoints, &stride, &type);
-        auto& bweight = *getBuffer(model, pr, "WEIGHTS_0", &oweights, &stride, &type);
-        auto& bidx = *getBuffer(model, pr, &oidx, &stride, &type);
+        int32 type_p = 0,type_t = 0,type_n = 0,type_j = 0,type_w = 0,type_i = 0;
+        auto& bpos = *getBuffer(model, pr, "POSITION", &opos, &stride, &type_p);
+        auto& btex = *getBuffer(model, pr, "TEXCOORD_0", &otex, &texstride, &type_t);
+        auto& bnormal = *getBuffer(model, pr, "NORMAL", &onormal, &stride, &type_n);
+        auto& bjoint = *getBuffer(model, pr, "JOINTS_0", &ojoints, &stride, &type_j);
+        auto& bweight = *getBuffer(model, pr, "WEIGHTS_0", &oweights, &stride, &type_w);
+        auto& bidx = *getBuffer(model, pr, &oidx, &stride, &type_i);
 
         Array<MeshVertex> vertices;
         for (int32 vv = 0; vv < map.count; vv++)
@@ -1167,16 +1168,24 @@ void gltfPrecomputeMesh(tinygltf::Model& model, int32 idxframe, AnimeModel& anim
             {
                 Mat4x4 matskin = Mat4x4().Identity();
 
-                auto joint = (uint16_t*)&bjoint.data.at(vv * 8 + ojoints);//1頂点あたり4JOINT
-                auto weight = (float*)&bweight.data.at(vv * 16 + oweights);
-                Word4  j4 = Word4(joint[0], joint[1], joint[2], joint[3]);
-                Float4 w4 = Float4(weight[0], weight[1], weight[2], weight[3]);
+//                auto joint = (uint16_t*)&bjoint.data.at(vv * 8 + ojoints);//1頂点あたり4JOINT
+//                auto weight = (float*)&bweight.data.at(vv * 16 + oweights);
+                uint8 *jb = (uint8*)&bjoint.data.at(vv * 4 + ojoints); //1頂点あたり4JOINT
+                uint16 *jw = (uint16*)&bjoint.data.at(vv * 8 + ojoints);
+                float *wf = (float*)&bweight.data.at(vv * 16 + oweights);
+
+
+//                Word4  j4 = Word4(joint[0], joint[1], joint[2], joint[3]);
+                Word4 j4 = (type_j == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) ? Word4(jw[0],jw[1],jw[2],jw[3]) :
+                           (type_j == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) ? Word4(jb[0],jb[1],jb[2],jb[3]) : Word4(0,0,0,0);
+
+                Float4 w4 = Float4(wf[0], wf[1], wf[2], wf[3]);
 
                 //スケルトン姿勢(接続されるボーンは4つ)
                 matskin = w4.x * precanime.Joints[node.skin][j4.x] +
-                    w4.y * precanime.Joints[node.skin][j4.y] +
-                    w4.z * precanime.Joints[node.skin][j4.z] +
-                    w4.w * precanime.Joints[node.skin][j4.w];
+                          w4.y * precanime.Joints[node.skin][j4.y] +
+                          w4.z * precanime.Joints[node.skin][j4.z] +
+                          w4.w * precanime.Joints[node.skin][j4.w];
 
                 if (pr.targets.size() > 0)
                 {
@@ -1345,8 +1354,8 @@ void gltfDrawSkinMesh(AnimeModel& animodel, Entity& ent,
         }
     }
     cfr += ent.Maple->ArgF;
-    if (floor(cfr) >= anime.Frames.size() - 2) cfr = 0;    //スプラインバグ隠蔽工作-2
-    else if (floor(cfr) < 0) cfr = anime.Frames.size() - 2;
+    if (floor(cfr) >= anime.Frames.size() ) cfr = 0;
+    else if (floor(cfr) < 0) cfr = anime.Frames.size()-1 ;
 }
 
 // 座標→文字列位置変換
