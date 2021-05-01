@@ -1,6 +1,6 @@
 # Maple-glTF
  The name Maple is a pun for MAP and Light Editing. I wish I could describe 3D space very easily and program various things.
-![screenshot](https://github.com/itakawa/Maple-glTF/ss.png?raw=true)
+![screenshot](https://github.com/itakawa/Maple-glTF/blob/main/ss.png?raw=true)
 
 # Required environment
 Microsoft Visual Studio 2019 Version 16.8.2
